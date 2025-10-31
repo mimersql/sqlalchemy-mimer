@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68,<77", "wheel", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqlalchemy-mimer"
+dynamic = ["version"]
+description = "SQLAlchemy dialect for Mimer SQL (via MimerPy/PEP 249)"
+readme = "README.md"
+authors = [
+  { name = "Fredrik Ålund", email = "fredrik.alund@mimer.com" },
+  { name = "Mimer Information Technology AB", email = "info@mimer.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = ["SQLAlchemy>=2.0", "mimerpy>=1.3.5"]
+
+# Metadata for PyPI and package indexes
+keywords = ["sqlalchemy", "mimer", "mimer sql", "database", "dialect", "dbapi"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Topic :: Database",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/mimersql/sqlalchemy-mimer"
+Repository = "https://github.com/mimersql/sqlalchemy-mimer"
+Documentation = "https://github.com/mimersql/sqlalchemy-mimer#readme"
+Issues = "https://github.com/mimersql/sqlalchemy-mimer/issues"
+
+[project.entry-points."sqlalchemy.dialects"]
+mimer = "sqlalchemy_mimer.dialect:MimerDialect"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["sqlalchemy_mimer"]
+
+[tool.setuptools_scm]
+write_to = "src/sqlalchemy_mimer/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "node-and-date"

@@ -1,0 +1,25 @@
+site_name: SQLAlchemy-Mimer
+repo_url: https://github.com/mimersql/sqlalchemy-mimer
+
+theme:
+  name: material
+  language: en
+  logo: images/mimerhd.png
+  favicon: images/mimerhd32x32.ico
+  palette:
+    primary: blue
+    accent: indigo
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - User Guide: userguide.md
+  - Autoincrement: autoincrement.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite
+  - tables
