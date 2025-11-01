@@ -46,7 +46,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-import argparse
+import argparse, getpass, os
 
 # -- Drop tables and sequences before re-creating them --
 def reset_schema(engine):
@@ -85,14 +85,49 @@ class Address(Base):
     
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--verbose',
-                    action='store_true',
-                    help="Show verbose output including SQLAlchemy logs")
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="Demo of ORM capabilities")
     
-    verbose = args.verbose
-    engine = create_engine("mimer://SYSADM:SYSPASS@mimerdb", echo=verbose)
+    parser.add_argument(
+        '-d', '--database',
+        help='Database name',
+    )
+
+    parser.add_argument(
+        '-u', '--user',
+        help='Database username',
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Database password',
+    )
+
+    parser.add_argument(
+        '-v', '--verbose',
+        help='Show verbose output including SQLAlchemy logs',
+        action='store_true',
+    )
+
+    args = parser.parse_args()
+
+    #If no database is give, try to use MIMER_DATABASE
+    database = args.database or os.environ.get("MIMER_DATABASE")
+    if not database:
+        parser.error("No database specified. Use -d/--database or set MIMER_DATABASE environment variable.")
+
+    # Get password if not specified
+    if not args.user:
+        args.user = input("Username: ").strip()
+
+    # Get password if not specified
+    if not args.password:
+        args.password = getpass.getpass(f"Password for {args.user or 'user'}: ")
+
+    # Build database URL
+    db_url = f"mimer://{args.user}:{args.password}@{database}"
+
+
+    engine = create_engine(db_url, echo=args.verbose)
     #engine = create_engine("sqlite://", echo=True)
     reset_schema(engine) 
     Base.metadata.create_all(engine)

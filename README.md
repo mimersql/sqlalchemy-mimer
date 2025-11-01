@@ -50,11 +50,11 @@ engine = create_engine("mimer+mimerpy://SYSADM:SYSPASS@localhost:1360/?dsn=mimer
 Run basic demo programs:
 
 ```bash
-python examples/demo_test.py "mimer://SYSADM:SYSPASS/mimerdb"
+python examples/demo_test.py -u <database username> -d <database>
 ```
 
 ```bash
-python examples/demo_create_table.py
+python examples/demo_create_table.py -u <database username> -d <database>
 ```
 
 Run a bit more complete demo that show some of the ORM capabilities:
