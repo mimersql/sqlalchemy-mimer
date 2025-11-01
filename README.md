@@ -54,13 +54,13 @@ python examples/demo_test.py -u <database username> -d <database>
 ```
 
 ```bash
-python examples/demo_create_table.py -u <database username> -d <database>
+python examples/demo_create_table.py
 ```
 
 Run a bit more complete demo that show some of the ORM capabilities:
 
 ```bash
-python examples/demo_orm.py
+python examples/demo_orm.py -u <database username> -d <database>
 ```
 
 ## 🧪 Running Tests
