@@ -26,8 +26,6 @@ DBNAME = ''
 
 # The test connects to SYSADM_USR and creates a subident that is used for all
 # the tests. After testing, the subident is dropped and everything goes away.
-SYSADM_USR = 'SYSADM'
-SYSADM_PWD = 'SYSPASS'
 
 
 #################################################################
@@ -43,10 +41,15 @@ from platform import system
 # Get default database, or use 'mimerdb' if not set
 DBNAME = os.environ.get('MIMER_DATABASE', 'mimerdb')
 
+# Get user and password for user with enough privileges
+# to create users and databanks
+SYSTEM_USR = os.environ.get('MIMER_TEST_USER', 'SYSADM')
+SYSTEM_PWD = os.environ.get('MIMER_TEST_PASSWORD', 'SYSADM')
+
 # Connection arguments for SYSADM
 SYSUSR = dict(dsn      = DBNAME,
-              user     = SYSADM_USR,
-              password = SYSADM_PWD)
+              user     = SYSTEM_USR,
+              password = SYSTEM_PWD)
 
 # Connection arguments for test user
 TSTUSR = dict(dsn      = DBNAME,

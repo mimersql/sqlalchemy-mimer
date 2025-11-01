@@ -65,6 +65,24 @@ python examples/demo_orm.py
 
 ## 🧪 Running Tests
 
+Before running the tests a Mimer SQL database ident with
+databank and ident privileges is needed. If no suitable ident exists it can
+be created with:
+
+```sql
+create ident TST_MASTER as user using 'TST_MASTER_PWD';
+grant ident to TST_MASTER;
+grant databank to TST_MASTER with grant option;
+````
+
+To tell the unittests what ident and password to use, set them as
+environment variables. On Linux and macOS you can do:
+
+```bash
+export MIMER_TEST_USER=TST_MASTER
+export MIMER_TEST_PASSWORD=TST_MASTER_PWD
+````
+
 To run all unittests:
 
 ```bash
