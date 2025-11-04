@@ -53,8 +53,9 @@ class TestSchema(unittest.TestCase):
             tables = insp.get_table_names()
             self.assertListEqual(tables, ['meta_demo'])
             cols = insp.get_columns("meta_demo")
-            expected_cols = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT_VALUE OF "SQLALCHEMY"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
-            self.assertEqual(str(expected_cols), str(cols))
+            expected_cols_v110 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT_VALUE OF "SQLALCHEMY"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
+            expected_cols_v111 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT VALUE FOR "SQLALCHEMY"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
+            self.assertIn( str(cols), (str(expected_cols_v110), str(expected_cols_v111)))
             if self.verbose:
                 print("Tables:", tables)
                 print("Columns:", cols)
