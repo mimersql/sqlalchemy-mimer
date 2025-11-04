@@ -33,7 +33,7 @@ def core(url, verbose:bool):
             conn.exec_driver_sql("drop sequence sa_demo_id_seq")
         except Exception:
             pass
-        conn.exec_driver_sql("create unique sequence sa_demo_id_seq as bigint")
+        conn.exec_driver_sql("create sequence sa_demo_id_seq as bigint no cycle")
         conn.exec_driver_sql("CREATE TABLE sa_demo (id bigint primary key default next value for sa_demo_id_seq, name VARCHAR(40) NOT NULL, created TIMESTAMP DEFAULT LOCALTIMESTAMP)")
         conn.execute(text("INSERT INTO sa_demo(name) VALUES (:n)"), [{"n": "Alice"}, {"n": "Bob"}])
         result = conn.execute(text("SELECT name, created FROM sa_demo ORDER BY created"))

@@ -764,7 +764,7 @@ class MimerDialect(DefaultDialect):
 
                 if not exists:
                     connection.execute(
-                        text(f'CREATE UNIQUE SEQUENCE "{seq_name}" AS BIGINT')
+                        text(f'CREATE SEQUENCE "{seq_name}" AS BIGINT NO CYCLE')
                     )
 
 
