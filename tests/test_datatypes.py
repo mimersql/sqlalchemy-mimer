@@ -335,7 +335,6 @@ class TestDatatypes(unittest.TestCase):
 
             meta.drop_all(conn)
 
-    @unittest.skip
     def test_interval_python_values(self):
         eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
@@ -356,6 +355,10 @@ class TestDatatypes(unittest.TestCase):
                 "interval_day_5_to_second_2": timedelta(days=2, seconds=13),
             }
             conn.execute(interval_table.insert().values(**values))
+
+            native_row = conn.execute(select(interval_table)).one()._mapping
+            for key, expected in values.items():
+                self.assertEqual(native_row[key], expected)
 
             cast_sql = text(
                 "SELECT "

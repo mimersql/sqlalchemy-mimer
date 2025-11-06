@@ -31,6 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.sql.compiler import IdentifierPreparer
 from sqlalchemy.engine.default import DefaultExecutionContext
 from .compiler import MimerSQLCompiler, MimerDDLCompiler
+from .types import MimerInterval
 
 from sqlalchemy.dialects import registry
 registry.register("mimer", "sqlalchemy_mimer.dialect", "MimerDialect")
@@ -268,6 +269,9 @@ class MimerDialect(DefaultDialect):
     use_insertmanyvalues = False
     supports_native_autoincrement = True
     insert_returning = False
+    colspecs = {
+        sqltypes.Interval: MimerInterval,
+    }
     
 
 
