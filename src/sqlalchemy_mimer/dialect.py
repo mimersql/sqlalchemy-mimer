@@ -189,7 +189,8 @@ class MimerTypeCompiler(TypeCompiler):
     visit_CLOB = visit_text
     visit_NCLOB = visit_unicode_text
     visit_BLOB = visit_large_binary
-    visit_VARBINARY = visit_binary
+    visit_VARBINARY = visit_varbinary
+    visit_BINARY = visit_binary
     visit_NVARCHAR = visit_unicode
     visit_VARCHAR = visit_string
     visit_CHAR = visit_char
@@ -784,5 +785,3 @@ class MimerDialect(DefaultDialect):
     # Attach to Table events
     event.listen(Table, "before_create", before_create_table)
     event.listen(Table, "after_drop", after_drop_table)
-
-
