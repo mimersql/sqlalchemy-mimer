@@ -21,6 +21,7 @@
 # See license for more details.
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+import math
 import uuid as UUID
 from sqlalchemy import (
     CHAR,
@@ -215,6 +216,154 @@ class TestDatatypes(unittest.TestCase):
             self.assertEqual(Decimal(row["numeric_no_scale"]), values["numeric_no_scale"])
             self.assertAlmostEqual(row["float_precise"], values["float_precise"], places=7)
             self.assertAlmostEqual(row["float_double"], values["float_double"], places=7)
+
+            meta.drop_all(conn)
+
+    def test_numeric_zero_values(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        zero_table = Table(
+            "numeric_zero_values",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("int_val", Integer),
+            Column("big_val", BigInteger()),
+            Column("small_val", SmallInteger()),
+            Column("numeric_val", Numeric(10, 2)),
+            Column("numeric_no_scale", Numeric(12)),
+            Column("float_precise", Float(10)),
+            Column("float_double", Float(54)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            values = {
+                "int_val": 0,
+                "big_val": 0,
+                "small_val": 0,
+                "numeric_val": Decimal("0.00"),
+                "numeric_no_scale": Decimal("0"),
+                "float_precise": 0.0,
+                "float_double": 0.0,
+            }
+            conn.execute(zero_table.insert().values(**values))
+            row = conn.execute(select(zero_table)).one()._mapping
+
+            self.assertEqual(row["int_val"], 0)
+            self.assertEqual(row["big_val"], 0)
+            self.assertEqual(row["small_val"], 0)
+            self.assertEqual(Decimal(row["numeric_val"]), values["numeric_val"])
+            self.assertEqual(Decimal(row["numeric_no_scale"]), values["numeric_no_scale"])
+            self.assertAlmostEqual(row["float_precise"], values["float_precise"], places=7)
+            self.assertAlmostEqual(row["float_double"], values["float_double"], places=7)
+
+            meta.drop_all(conn)
+
+    def test_numeric_negative_values(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        negative_table = Table(
+            "numeric_negative_values",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("int_val", Integer),
+            Column("big_val", BigInteger()),
+            Column("small_val", SmallInteger()),
+            Column("numeric_val", Numeric(10, 2)),
+            Column("numeric_no_scale", Numeric(12)),
+            Column("float_precise", Float(10)),
+            Column("float_double", Float(54)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            values = {
+                "int_val": -1,
+                "big_val": -9223372036854775808,
+                "small_val": -32768,
+                "numeric_val": Decimal("-99999999.99"),
+                "numeric_no_scale": Decimal("-999999999999"),
+                "float_precise": -12345.6789,
+                "float_double": -9876543210.12345,
+            }
+            conn.execute(negative_table.insert().values(**values))
+            row = conn.execute(select(negative_table)).one()._mapping
+
+            self.assertEqual(row["int_val"], values["int_val"])
+            self.assertEqual(row["big_val"], values["big_val"])
+            self.assertEqual(row["small_val"], values["small_val"])
+            self.assertEqual(Decimal(row["numeric_val"]), values["numeric_val"])
+            self.assertEqual(Decimal(row["numeric_no_scale"]), values["numeric_no_scale"])
+            self.assertTrue(
+                math.isclose(row["float_precise"], values["float_precise"], rel_tol=1e-9)
+            )
+            self.assertTrue(
+                math.isclose(row["float_double"], values["float_double"], rel_tol=1e-15)
+            )
+
+            meta.drop_all(conn)
+
+    def test_numeric_precision_limits(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        precision_table = Table(
+            "numeric_precision_limits",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("numeric_val", Numeric(10, 2)),
+            Column("numeric_no_scale", Numeric(12)),
+            Column("float_precise", Float(10)),
+            Column("float_double", Float(54)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            values = {
+                "numeric_val": Decimal("99999999.99"),
+                "numeric_no_scale": Decimal("999999999999"),
+                "float_precise": 98765.432109,
+                "float_double": 1.23456789012345e100,
+            }
+            conn.execute(precision_table.insert().values(**values))
+            row = conn.execute(select(precision_table)).one()._mapping
+
+            self.assertEqual(Decimal(row["numeric_val"]), values["numeric_val"])
+            self.assertEqual(Decimal(row["numeric_no_scale"]), values["numeric_no_scale"])
+            self.assertTrue(
+                math.isclose(row["float_precise"], values["float_precise"], rel_tol=1e-9)
+            )
+            self.assertTrue(
+                math.isclose(row["float_double"], values["float_double"], rel_tol=1e-15)
+            )
+
+            meta.drop_all(conn)
+
+    def test_numeric_float_extremes(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        float_table = Table(
+            "numeric_float_extremes",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("float_small", Float(10)),
+            Column("float_large", Float(54)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            values = {
+                "float_small": 1.0e-30,
+                "float_large": 9.223372036854776e18,
+            }
+            conn.execute(float_table.insert().values(**values))
+            row = conn.execute(select(float_table)).one()._mapping
+
+            self.assertTrue(
+                math.isclose(row["float_small"], values["float_small"], rel_tol=1e-15)
+            )
+            self.assertTrue(
+                math.isclose(row["float_large"], values["float_large"], rel_tol=1e-15)
+            )
 
             meta.drop_all(conn)
 
