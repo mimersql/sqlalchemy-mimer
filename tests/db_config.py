@@ -78,11 +78,12 @@ def setup():
                 pass
 
         c.execute("CREATE IDENT SQLALCHEMY AS USER USING 'PySecret'")
-        c.execute("GRANT DATABANK,IDENT TO SQLALCHEMY")
+        c.execute("GRANT DATABANK,IDENT, SCHEMA TO SQLALCHEMY")
     syscon.commit()
     tstcon = mimerpy.connect(**TSTUSR)
     with tstcon.cursor() as c:
         c.execute("CREATE DATABANK SQLALCBANK")
+        c.execute("CREATE SCHEMA MYSCHEMA")
         try:
             c.execute(F"CREATE IDENT \"{OSUSER}\" AS USER")
             c.execute(F"ALTER IDENT \"{OSUSER}\" ADD OS_USER '{QUALIFIED_OSUSER}' ")

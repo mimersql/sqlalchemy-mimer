@@ -759,7 +759,8 @@ class MimerDialect(DefaultDialect):
     def get_pk_sequence(self, column):
         """Return a SQLAlchemy Sequence for a PK integer column."""
         seq_name = f"{column.table.name}_{column.name}_autoinc_seq"
-        return Sequence(seq_name)
+        seq_schema = column.table.schema
+        return Sequence(seq_name, schema=seq_schema)
 
     def has_sequence(self, connection, sequence_name, schema=None):
         """Return True if the named sequence exists in the given or current schema."""
@@ -783,6 +784,8 @@ class MimerDialect(DefaultDialect):
         dialect = connection.dialect
         resolved_schema = dialect._resolve_schema(connection, schema)
 
+        preparer = dialect.identifier_preparer
+
         for col in target.columns:
             if (
                 col.primary_key
@@ -790,20 +793,11 @@ class MimerDialect(DefaultDialect):
                 and isinstance(col.type, (Integer, BigInteger, SmallInteger))
             ):
                 seq_name = f"{col.table.name}_{col.name}_autoinc_seq"
-                # Check whether the sequence already exists
-                exists = connection.exec_driver_sql(
-                    """
-                    SELECT 1
-                    FROM INFORMATION_SCHEMA.SEQUENCES
-                    WHERE SEQUENCE_SCHEMA = :schema
-                    AND SEQUENCE_NAME = :name
-                    """,
-                    {"schema": resolved_schema, "name": seq_name},
-                ).scalar()
-
-                if not exists:
+                if not dialect.has_sequence(connection, seq_name, schema=resolved_schema):
+                    seq = Sequence(seq_name, schema=resolved_schema)
+                    qualified = preparer.format_sequence(seq, use_schema=True)
                     connection.execute(
-                        text(f'CREATE SEQUENCE "{seq_name}" AS BIGINT NO CYCLE')
+                        text(f"CREATE SEQUENCE {qualified} AS BIGINT NO CYCLE")
                     )
 
 
@@ -813,12 +807,16 @@ class MimerDialect(DefaultDialect):
         schema = target.schema
         resolved_schema = dialect._resolve_schema(connection, schema)
 
+        preparer = dialect.identifier_preparer
+
         for col in target.columns:
             if col.primary_key and col.autoincrement:
                 seq_name = f"{col.table.name}_{col.name}_autoinc_seq"
                 # only drop if it still exists
                 if dialect.has_sequence(connection, seq_name, schema=resolved_schema):
-                    connection.execute(text(f'DROP SEQUENCE "{seq_name}"'))
+                    seq = Sequence(seq_name, schema=resolved_schema)
+                    qualified = preparer.format_sequence(seq, use_schema=True)
+                    connection.execute(text(f"DROP SEQUENCE {qualified}"))
 
     # Attach to Table events
     event.listen(Table, "before_create", before_create_table)

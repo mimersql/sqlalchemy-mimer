@@ -19,7 +19,17 @@
 # SOFTWARE.
 #
 # See license for more details.
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, inspect
+from sqlalchemy import (
+    create_engine,
+    MetaData,
+    Table,
+    Column,
+    Integer,
+    String,
+    inspect,
+    select,
+    Sequence,
+)
 import unittest
 import db_config
 
@@ -45,20 +55,99 @@ class TestSchema(unittest.TestCase):
 
         t = Table("meta_demo", meta,
                 Column("id", Integer, primary_key=True),
-                Column("name", String(40)))
+                Column("name", String(40)), schema="myschema")
 
         with eng.begin() as conn:
             meta.create_all(conn)
             insp = inspect(conn)
-            tables = insp.get_table_names()
-            self.assertListEqual(tables, ['meta_demo'])
-            cols = insp.get_columns("meta_demo")
-            expected_cols_v110 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT_VALUE OF "SQLALCHEMY"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
-            expected_cols_v111 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT VALUE FOR "SQLALCHEMY"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
+            tables = insp.get_table_names(schema="myschema")
+            self.assertIn('meta_demo', tables)
+            cols = insp.get_columns("meta_demo", schema="myschema")
+            expected_cols_v110 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT_VALUE OF "myschema"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
+            expected_cols_v111 = [{'name': 'id', 'type': Integer(), 'nullable': False, 'default': 'NEXT VALUE FOR "myschema"."meta_demo_id_autoinc_seq"'}, {'name': 'name', 'type': String(length=40), 'nullable': True, 'default': None}]
             self.assertIn( str(cols), (str(expected_cols_v110), str(expected_cols_v111)))
+
+            conn.execute(t.insert(), [{"name": "alpha"}, {"name": "beta"}])
+            rows = conn.execute(select(t).order_by(t.c.id)).all()
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]._mapping["name"], "alpha")
+            self.assertEqual(rows[1]._mapping["name"], "beta")
+            self.assertEqual(rows[0]._mapping["id"], 1)
+            self.assertEqual(rows[1]._mapping["id"], 2)
+
             if self.verbose:
                 print("Tables:", tables)
                 print("Columns:", cols)
+                print("Rows:", rows)
+            meta.drop_all(conn)
+
+    def test_schema_sequence_cleanup(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+
+        t = Table(
+            "meta_cleanup",
+            meta,
+            Column("id", Integer, primary_key=True),
+            Column("name", String(40)),
+            schema="myschema",
+        )
+
+        seq_name = f"{t.name}_id_autoinc_seq"
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            meta.drop_all(conn)
+            seq_exists = eng.dialect.has_sequence(conn, seq_name, schema="myschema")
+            self.assertFalse(seq_exists, f"Sequence {seq_name} should be dropped")
+
+    def test_default_schema_roundtrip(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+
+        t = Table(
+            "default_demo",
+            meta,
+            Column("id", Integer, primary_key=True),
+            Column("note", String(40)),
+        )
+
+        with eng.begin() as conn:
+            default_schema = eng.dialect.get_default_schema_name(conn)
+            meta.create_all(conn)
+            conn.execute(t.insert(), [{"note": "plain"}])
+            rows = conn.execute(select(t).order_by(t.c.id)).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]._mapping["note"], "plain")
+            self.assertEqual(rows[0]._mapping["id"], 1)
+
+            tables = inspect(conn).get_table_names(schema=default_schema)
+            self.assertIn(t.name, tables)
+            meta.drop_all(conn)
+
+    def test_explicit_sequence_schema_usage(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+
+        named_seq = Sequence("explicit_id_seq", schema="myschema")
+        t = Table(
+            "explicit_seq_demo",
+            meta,
+            Column("id", Integer, named_seq, primary_key=True),
+            Column("label", String(40)),
+            schema="myschema",
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            conn.execute(t.insert(), [{"label": "first"}, {"label": "second"}])
+            rows = conn.execute(select(t).order_by(t.c.id)).all()
+            self.assertEqual([row._mapping["label"] for row in rows], ["first", "second"])
+            self.assertEqual([row._mapping["id"] for row in rows], [1, 2])
+
+            if self.verbose:
+                print("Explicit seq rows:", rows)
+
             meta.drop_all(conn)
 
 if __name__ == '__main__':

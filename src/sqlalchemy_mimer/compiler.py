@@ -25,6 +25,11 @@ from sqlalchemy import Sequence, Integer, SmallInteger, BigInteger
 class MimerSQLCompiler(SQLCompiler):
     """Compiler for Mimer SQL dialect."""
 
+    def visit_sequence(self, sequence, **kw):
+        preparer = self.dialect.identifier_preparer
+        seq_text = preparer.format_sequence(sequence, use_schema=True)
+        return f"NEXT VALUE FOR {seq_text}"
+
     def visit_current_timestamp_func(self, fn, **kw):
         # Mimer SQL uses LOCALTIMESTAMP instead of CURRENT_TIMESTAMP
         return "LOCALTIMESTAMP"
@@ -49,7 +54,8 @@ class MimerDDLCompiler(DDLCompiler):
         default = column.default
         # Handle Sequence defaults for autoincrementing columns
         if isinstance(default, Sequence):
-            return f"NEXT VALUE FOR {self.preparer.format_sequence(default)}"
+            seq_name = self.preparer.format_sequence(default, use_schema=True)
+            return f"NEXT VALUE FOR {seq_name}"
         # Fall back to SQLAlchemy’s default handling
         return super().get_column_default_string(column)
     
@@ -62,7 +68,7 @@ class MimerDDLCompiler(DDLCompiler):
         # 1) Explicit Sequence på kolumnen → använd den
         default = column.default
         if isinstance(default, Sequence):
-            seq_name = self.preparer.format_sequence(default)
+            seq_name = self.preparer.format_sequence(default, use_schema=True)
             colspec += f" DEFAULT NEXT VALUE FOR {seq_name}"
             return colspec
 
@@ -82,9 +88,12 @@ class MimerDDLCompiler(DDLCompiler):
         ):
             # matchar namnschemat du använder i before_create_table
             seq_name = f"{column.table.name}_{column.name}_autoinc_seq"
+            seq_schema = column.table.schema
+            seq = Sequence(seq_name, schema=seq_schema)
+            qualified_name = self.preparer.format_sequence(seq, use_schema=True)
             # här *renderar* vi bara DEFAULT …; vi ändrar inte column.default
             # (så before_create_table kan skapa sekvensen utan sidoeffekter)
-            colspec += f" DEFAULT NEXT VALUE FOR {self.preparer.quote(seq_name)}"
+            colspec += f" DEFAULT NEXT VALUE FOR {qualified_name}"
 
         return colspec
 

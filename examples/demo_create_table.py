@@ -31,4 +31,14 @@ t = Table(
     Column("created", TIMESTAMP, server_default=func.current_timestamp()),
 )
 
-print(str(CreateTable(t).compile(dialect=MimerDialect())))
+print("Table without explicit schema: ", str(CreateTable(t).compile(dialect=MimerDialect())))
+
+t = Table(
+    "demo",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("created", TIMESTAMP, server_default=func.current_timestamp()),
+    schema="myschema"
+)
+
+print("Table with explicit schema: ", str(CreateTable(t).compile(dialect=MimerDialect())))
