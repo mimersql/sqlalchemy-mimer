@@ -173,7 +173,41 @@ class MimerTypeCompiler(TypeCompiler):
         return "BUILTIN.UUID"
 
     def visit_interval(self, type_, **kw):
-        return "INTERVAL"
+        if not getattr(type_, "native", True):
+            # Defer to the underlying datetime implementation when SQLAlchemy
+            # requests non-native interval handling.
+            return self.visit_datetime(type_.impl, **kw)
+
+        text = "INTERVAL"
+        fields = getattr(type_, "fields", None)
+        day_precision = getattr(type_, "day_precision", None)
+        second_precision = getattr(type_, "second_precision", None)
+        precision = getattr(type_, "precision", None)
+
+        if fields:
+            text += f" {fields}"
+            if second_precision is not None and "SECOND" in fields.upper():
+                text += f"({second_precision})"
+        else:
+            if day_precision is not None and second_precision is not None:
+                text += f" DAY({day_precision}) TO SECOND({second_precision})"
+            else:
+                if day_precision is not None:
+                    text += f" DAY({day_precision})"
+                if second_precision is not None:
+                    text += f" SECOND({second_precision})"
+
+        if precision is not None and "SECOND" not in (fields or "").upper():
+            text += f"({precision})"
+
+        return text
+
+    def visit_type_decorator(self, type_, **kw):
+        if isinstance(type_, sqltypes.Interval):
+            return self.visit_interval(type_, **kw)
+        # Delegate to the wrapped implementation so SQLAlchemy's generic
+        # TypeDecorator instances render correctly.
+        return self.process(type_.impl, **kw)
 
     visit_decimal = visit_numeric
     visit_double_precision = visit_float

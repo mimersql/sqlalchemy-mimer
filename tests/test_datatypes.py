@@ -19,10 +19,36 @@
 # SOFTWARE.
 #
 # See license for more details.
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, Float, Time, Date, DateTime, String, Uuid, insert, select
 from datetime import date, datetime, time
 import uuid as UUID
+from sqlalchemy import (
+    CHAR,
+    BigInteger,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    LargeBinary,
+    MetaData,
+    Numeric,
+    SmallInteger,
+    String,
+    Table,
+    Text,
+    Time,
+    Unicode,
+    UnicodeText,
+    Uuid,
+    create_engine,
+    insert,
+    select,
+    types as sqltypes
+)
 from sqlalchemy.schema import CreateTable
+from sqlalchemy_mimer.dialect import MimerDialect
+from sqlalchemy_mimer.types import MimerInterval
 import unittest
 import db_config
 from test_utils import normalize_sql
@@ -73,6 +99,81 @@ class TestDatatypes(unittest.TestCase):
             }])
             if self.verbose:
                 print(conn.execute(select(t)).first())
+            meta.drop_all(conn)
+
+    def test_all_supported_datatypes_compile(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        data_types = Table(
+            "datatype_table",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("big_val", BigInteger()),
+            Column("small_val", SmallInteger()),
+            Column("numeric_val", Numeric(10, 2)),
+            Column("numeric_no_scale", Numeric(12)),
+            Column("float_precise", Float(10)),
+            Column("float_double", Float(54)),
+            Column("string_val", String(120)),
+            Column("string_default", String()),
+            Column("char_val", CHAR(3)),
+            Column("text_val", Text()),
+            Column("unicode_val", Unicode(100)),
+            Column("unicode_text_val", UnicodeText()),
+            Column("binary_val", LargeBinary()),
+            Column("fixed_binary_val", sqltypes.BINARY(16)),
+            Column("varbinary_val", sqltypes.VARBINARY(32)),
+            Column("boolean_val", Boolean()),
+            Column("date_val", Date()),
+            Column("time_val", Time()),
+            Column("datetime_val", DateTime()),
+            Column("interval_day_5", sqltypes.Interval(day_precision=5)),
+            Column("interval_second_4", sqltypes.Interval(second_precision=4)),            
+            Column("interval_day_5_to_second_2", sqltypes.Interval(day_precision=5, second_precision=2)),
+            Column("interval_year", MimerInterval(fields="YEAR")),
+            Column("interval_year_2", MimerInterval(fields="YEAR", precision=2)),
+            Column("interval_year_to_month", MimerInterval(fields="YEAR TO MONTH")),
+            Column("interval_day_to_second", MimerInterval(fields="DAY TO SECOND", second_precision=5)),     
+            Column("uuid_val", sqltypes.Uuid()),
+        )
+        compiled_sql = str(CreateTable(data_types).compile(dialect=MimerDialect()))
+        normalized = normalize_sql(compiled_sql)
+        expected_sql = (
+            "CREATE TABLE datatype_table ( "
+            "id INTEGER DEFAULT NEXT VALUE FOR datatype_table_id_autoinc_seq, "
+            "big_val BIGINT, "
+            "small_val SMALLINT, "
+            "numeric_val DECIMAL(10,2), "
+            "numeric_no_scale DECIMAL(12), "
+            "float_precise FLOAT(10), "
+            "float_double DOUBLE PRECISION, "
+            "string_val VARCHAR(120), "
+            "string_default VARCHAR(255), "
+            "char_val CHAR(3), "
+            "text_val CLOB, "
+            "unicode_val NVARCHAR(100), "
+            "unicode_text_val NCLOB, "
+            "binary_val BLOB, "
+            "fixed_binary_val BINARY(16), "
+            "varbinary_val VARBINARY(32), "
+            "boolean_val BOOLEAN, "
+            "date_val DATE, "
+            "time_val TIME, "
+            "datetime_val TIMESTAMP, "
+            "interval_day_5 INTERVAL DAY(5), "
+            "interval_second_4 INTERVAL SECOND(4), "
+            "interval_day_5_to_second_2 INTERVAL DAY(5) TO SECOND(2), "
+            "interval_year INTERVAL YEAR, "
+            "interval_year_2 INTERVAL YEAR(2), "
+            "interval_year_to_month INTERVAL YEAR TO MONTH, "
+            "interval_day_to_second INTERVAL DAY TO SECOND(5), "
+            "uuid_val BUILTIN.UUID, "
+            "PRIMARY KEY (id) "
+            ")"
+        )
+        self.assertEqual(normalized, expected_sql)
+        with eng.begin() as conn:
+            meta.create_all(conn)
             meta.drop_all(conn)
 
 if __name__ == '__main__':

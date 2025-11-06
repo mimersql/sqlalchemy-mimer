@@ -108,6 +108,11 @@ class MimerDateTime(sqltypes.DateTime):
 class MimerInterval(sqltypes.Interval):
     __visit_name__ = "interval"
 
+    def __init__(self, *args, fields=None, precision=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields = fields
+        self.precision = precision
+
 # --- Other types  -----
 class MimerUUID(sqltypes.Uuid):
     __visit_name__ = "uuid"
