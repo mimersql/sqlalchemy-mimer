@@ -65,34 +65,34 @@ class MimerDDLCompiler(DDLCompiler):
         colspec = self.preparer.format_column(column)
         colspec += " " + self.dialect.type_compiler.process(column.type, **kw)
 
-        # 1) Explicit Sequence på kolumnen → använd den
+        # 1) Explicit Sequence on the column → use it
         default = column.default
         if isinstance(default, Sequence):
             seq_name = self.preparer.format_sequence(default, use_schema=True)
             colspec += f" DEFAULT NEXT VALUE FOR {seq_name}"
             return colspec
 
-        # 2) Respektera server_default om satt (t.ex. text('NEXT VALUE FOR ...') eller func.current_timestamp())
+        # 2) Respect server_default if present (e.g text('NEXT VALUE FOR ...') or func.current_timestamp())
         if column.server_default is not None:
             default_expr = self.get_column_default_string(column)
             if default_expr:
                 colspec += f" DEFAULT {default_expr}"
             return colspec
 
-        # 3) Implicit autoincrement för PK av heltalstyp utan explicit default
+        # 3) Implicit autoincrement for integer PKs without explicit default
         if (
             column.primary_key
-            and getattr(column, "autoincrement", True)  # default i SA är "auto"
+            and getattr(column, "autoincrement", True)  # SQLAlchemy default is "auto"
             and column.default is None
             and isinstance(column.type, (Integer, BigInteger, SmallInteger))
         ):
-            # matchar namnschemat du använder i before_create_table
+            # matches the naming scheme used in before_create_table
             seq_name = f"{column.table.name}_{column.name}_autoinc_seq"
             seq_schema = column.table.schema
             seq = Sequence(seq_name, schema=seq_schema)
             qualified_name = self.preparer.format_sequence(seq, use_schema=True)
-            # här *renderar* vi bara DEFAULT …; vi ändrar inte column.default
-            # (så before_create_table kan skapa sekvensen utan sidoeffekter)
+            # we only render the DEFAULT here; we don't mutate column.default
+            # (so before_create_table can create the sequence without side effects)
             colspec += f" DEFAULT NEXT VALUE FOR {qualified_name}"
 
         return colspec
