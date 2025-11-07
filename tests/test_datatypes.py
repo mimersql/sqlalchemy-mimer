@@ -219,6 +219,32 @@ class TestDatatypes(unittest.TestCase):
 
             meta.drop_all(conn)
 
+    def test_boolean_roundtrip(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        boolean_table = Table(
+            "boolean_roundtrip",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("flag", Boolean),
+            Column("label", String(20)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            conn.execute(
+                boolean_table.insert(),
+                [
+                    {"flag": True, "label": "t"},
+                    {"flag": False, "label": "f"},
+                    {"flag": None, "label": "n"},
+                ],
+            )
+            rows = conn.execute(select(boolean_table).order_by(boolean_table.c.id)).all()
+            self.assertEqual([row._mapping["flag"] for row in rows], [True, False, None])
+            self.assertEqual([row._mapping["label"] for row in rows], ["t", "f", "n"])
+            meta.drop_all(conn)
+
     def test_numeric_zero_values(self):
         eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
@@ -553,6 +579,29 @@ class TestDatatypes(unittest.TestCase):
             self.assertEqual(str(row["uuid_val"]), str(value["uuid_val"]))
             self.assertEqual(row["label"], value["label"])
             self.assertTrue(row["is_active"])
+
+            meta.drop_all(conn)
+
+    def test_uuid_string_input(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData()
+        uuid_table = Table(
+            "uuid_string_types",
+            meta,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("uuid_val", Uuid),
+            Column("label", String(40)),
+        )
+
+        string_uuid = str(UUID.uuid4())
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            conn.execute(uuid_table.insert(), {"uuid_val": string_uuid, "label": "string"})
+            row = conn.execute(select(uuid_table)).one()._mapping
+
+            self.assertEqual(str(row["uuid_val"]), string_uuid)
+            self.assertEqual(row["label"], "string")
 
             meta.drop_all(conn)
 
