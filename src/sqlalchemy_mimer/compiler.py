@@ -26,19 +26,21 @@ class MimerSQLCompiler(SQLCompiler):
     """Compiler for Mimer SQL dialect."""
 
     def visit_sequence(self, sequence, **kw):
+        """Render ``NEXT VALUE FOR`` expressions for Sequence usage."""
         preparer = self.dialect.identifier_preparer
         seq_text = preparer.format_sequence(sequence, use_schema=True)
         return f"NEXT VALUE FOR {seq_text}"
 
     def visit_current_timestamp_func(self, fn, **kw):
-        # Mimer SQL uses LOCALTIMESTAMP instead of CURRENT_TIMESTAMP
+        """Emit ``LOCALTIMESTAMP`` for :class:`~sqlalchemy.sql.func.now`."""
         return "LOCALTIMESTAMP"
 
     def visit_current_time_func(self, fn, **kw):
+        """Emit ``LOCALTIME`` for :func:`~sqlalchemy.sql.func.current_time`."""
         return "LOCALTIME"
 
     def limit_clause(self, select, **kw):
-        # SQL standard style OFFSET / FETCH (preferred form)
+        """Translate LIMIT/OFFSET to ANSI ``OFFSET .. FETCH`` clauses."""
         text = ""
         if select._offset is not None:
             text += f" OFFSET {select._offset} ROWS"
@@ -51,6 +53,7 @@ class MimerSQLCompiler(SQLCompiler):
 class MimerDDLCompiler(DDLCompiler):
     """DDL Compiler for Mimer SQL dialect."""
     def get_column_default_string(self, column):
+        """Return the SQL fragment for a column default, handling sequences."""
         default = column.default
         # Handle Sequence defaults for autoincrementing columns
         if isinstance(default, Sequence):
@@ -61,7 +64,7 @@ class MimerDDLCompiler(DDLCompiler):
 
 
     def get_column_specification(self, column, **kw):
-        # Bas: kolumnnamn + typ
+        """Render a full column definition including implicit sequences."""
         colspec = self.preparer.format_column(column)
         colspec += " " + self.dialect.type_compiler.process(column.type, **kw)
 
@@ -100,7 +103,7 @@ class MimerDDLCompiler(DDLCompiler):
 
     def visit_create_domain_type(self, create, **kw):
         """
-        Generate a CREATE DOMAIN statement for Mimer SQL.
+        Generate a CREATE DOMAIN statement.
         SQLAlchemy does not yet expose CreateDomain for external dialects.
         """
         domain = create.element
@@ -136,6 +139,6 @@ class MimerDDLCompiler(DDLCompiler):
         return sql.strip()
 
     def visit_drop_domain_type(self, drop, **kw):
-        """Generate a DROP DOMAIN statement for Mimer SQL."""
+        """Generate a DROP DOMAIN statement."""
         domain = drop.element
         return f"DROP DOMAIN {self.preparer.format_type(domain)} RESTRICT"

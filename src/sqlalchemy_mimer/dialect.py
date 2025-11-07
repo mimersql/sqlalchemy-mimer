@@ -84,18 +84,20 @@ class MimerExecutionContext(DefaultExecutionContext):
 
 
 class MimerIdentifierPreparer(IdentifierPreparer):
+    """Customize identifier quoting to account for Mimer keywords."""
     def __init__(self, dialect):
         super().__init__(dialect)
         # Normalize reserved words to lowercase for case-insensitive lookup
         self.reserved_words = {w.lower() for w in MIMER_RESERVED_WORDS}
 
     def _requires_quotes(self, value):
-        # Ensure reserved words are matched case-insensitively
+        """Quote identifiers when they collide with reserved words."""
         if value.lower() in self.reserved_words:
             return True
         return super()._requires_quotes(value)
 
 class MimerTypeCompiler(TypeCompiler):
+    """Render SQL type names using Mimer's built-in type keywords."""
     def visit_boolean(self, type_, **kw):
         return "BOOLEAN"
 
@@ -117,22 +119,26 @@ class MimerTypeCompiler(TypeCompiler):
 
 
     def visit_float(self, type_, **kw):
+        """Emit ``FLOAT(p)`` up to 53 bits of precision, otherwise ``DOUBLE``."""
         if type_.precision and type_.precision <= 53:
             return f"FLOAT({type_.precision})"
         return "DOUBLE PRECISION"
 
     def visit_string(self, type_, **kw):
+        """Render ``VARCHAR`` with either the explicit or default length."""
         length = getattr(type_, "length", None)
         if length:
             return f"VARCHAR({length})"
         return "VARCHAR(255)"
 
     def visit_char(self, type_, **kw):
+        """Render ``CHAR`` with a default length of 1 when unspecified."""
         if type_.length:
             return f"CHAR({type_.length})"
         return "CHAR(1)"
 
     def visit_unicode(self, type_, **kw):
+        """Render ``NVARCHAR`` for Unicode-aware string columns."""
         length = getattr(type_, "length", None)
         if length:
             return f"NVARCHAR({length})"
@@ -174,6 +180,7 @@ class MimerTypeCompiler(TypeCompiler):
         return "BUILTIN.UUID"
 
     def visit_interval(self, type_, **kw):
+        """Render native ``INTERVAL`` syntax honoring requested precisions."""
         if not getattr(type_, "native", True):
             # Defer to the underlying datetime implementation when SQLAlchemy
             # requests non-native interval handling.
@@ -204,6 +211,7 @@ class MimerTypeCompiler(TypeCompiler):
         return text
 
     def visit_type_decorator(self, type_, **kw):
+        """Delegate TypeDecorator processing to its wrapped implementation."""
         if isinstance(type_, sqltypes.Interval):
             return self.visit_interval(type_, **kw)
         # Delegate to the wrapped implementation so SQLAlchemy's generic
@@ -276,6 +284,7 @@ class MimerDialect(DefaultDialect):
 
 
     def set_isolation_level(self, connection, level):
+        """Map SQLAlchemy isolation levels to MimerPy's autocommit flag."""
         if level == "AUTOCOMMIT":
             connection.autocommitmode = True
         else:
@@ -398,11 +407,13 @@ class MimerDialect(DefaultDialect):
 
     @classmethod
     def import_dbapi(cls):
+        """Import and return the MimerPy DBAPI module."""
         import mimerpy
         return mimerpy
 
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
+        """Reflect column metadata for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
         rows = connection.exec_driver_sql(
             """
@@ -453,6 +464,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
+        """Return True if ``table_name`` exists in ``schema``."""
         schema = self._resolve_schema(connection, schema)
         res = connection.exec_driver_sql(
             """
@@ -466,6 +478,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+        """Return primary-key constraint info for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -488,6 +501,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
+        """Return foreign-key constraint definitions for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -534,6 +548,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+        """Return UNIQUE constraints defined on ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -593,6 +608,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
+        """Return non-constraint indexes for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -736,6 +752,7 @@ class MimerDialect(DefaultDialect):
 
 
     def _run_autocommit_ddl(self, cursor, statement, parameters):
+        """Execute ``statement`` with autocommit enabled (required for DDL)."""
         conn = cursor.connection
         if conn._transaction:
             conn.rollback()
@@ -747,12 +764,14 @@ class MimerDialect(DefaultDialect):
             conn.autocommitmode = old_mode
 
     def do_execute(self, cursor, statement, parameters, context=None):
+        """Execute SQL, routing DDL through autocommit helper when needed."""
         if statement.lstrip().upper().startswith(("CREATE ", "DROP ", "ALTER ")):
             self._run_autocommit_ddl(cursor, statement, parameters)
         else:
             cursor.execute(statement, parameters or ())
 
     def do_execute_ddl(self, cursor, statement, parameters, context=None):
+        """Execute a DDL statement in autocommit mode."""
         self._run_autocommit_ddl(cursor, statement, parameters)
 
 
@@ -779,7 +798,7 @@ class MimerDialect(DefaultDialect):
         return result.scalar() is not None
 
     def before_create_table(target, connection, **kw):
-        # Resolve the correct schema (CURRENT_USER or explicit)
+        """Create implicit autoincrement sequences prior to table creation."""
         schema = target.schema
         dialect = connection.dialect
         resolved_schema = dialect._resolve_schema(connection, schema)
