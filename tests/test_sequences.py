@@ -76,6 +76,16 @@ class TestSequences(unittest.TestCase):
             finally:
                 seq.drop(bind=conn)
 
+    def test_sequence_with_start_increment(self):
+        seq = Sequence("seq_custom_step", start=5, increment=3)
+        with self.eng.begin() as conn:
+            seq.create(bind=conn)
+            try:
+                values = [conn.scalar(seq) for _ in range(3)]
+                self.assertEqual(values, [5, 8, 11])
+            finally:
+                seq.drop(bind=conn)
+
     def test_autoincrement_sequence_created(self):
         users = Table(
             "seq_users", self.meta,
@@ -102,6 +112,7 @@ class TestSequences(unittest.TestCase):
             self.assertEqual([row._mapping["id"] for row in rows], [1, 2])
             self.assertEqual([row._mapping["label"] for row in rows], ["one", "two"])
             self.meta.drop_all(conn)
+            
 
     def test_explicit_sequence_custom_schema(self):
         named_seq = Sequence("explicit_seq_myschema", schema="myschema")
@@ -119,6 +130,24 @@ class TestSequences(unittest.TestCase):
             rows = conn.execute(select(t).order_by(t.c.id)).all()
             self.assertEqual([row._mapping["id"] for row in rows], [1, 2])
             self.assertEqual([row._mapping["label"] for row in rows], ["alpha", "beta"])
+            self.meta.drop_all(conn)
+
+    def test_sequence_created_via_metadata(self):
+        named_seq = Sequence("meta_managed_seq", metadata=self.meta)
+        t = Table(
+            "meta_managed_seq_table",
+            self.meta,
+            Column("id", Integer, named_seq, primary_key=True),
+            Column("payload", String(40)),
+        )
+
+        with self.eng.begin() as conn:
+            self.meta.create_all(conn)
+            conn.execute(t.insert(), [{"payload": "meta"}])
+            row = conn.execute(select(t)).one()
+            self.assertEqual(row._mapping["id"], 1)
+            self.assertEqual(row._mapping["payload"], "meta")
+            self.assertTrue(self.eng.dialect.has_sequence(conn, "META_MANAGED_SEQ"))
             self.meta.drop_all(conn)
 
 
