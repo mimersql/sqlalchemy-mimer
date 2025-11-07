@@ -125,6 +125,27 @@ class TestSchema(unittest.TestCase):
             self.assertIn(t.name, tables)
             meta.drop_all(conn)
 
+    def test_metadata_schema_attribute_roundtrip(self):
+        eng = create_engine(self.url, echo=self.verbose, future=True)
+        meta = MetaData(schema="myschema")
+
+        t = Table(
+            "meta_schema_demo",
+            meta,
+            Column("id", Integer, primary_key=True),
+            Column("note", String(40)),
+        )
+
+        with eng.begin() as conn:
+            meta.create_all(conn)
+            conn.execute(t.insert(), [{"note": "scoped"}])
+            rows = conn.execute(select(t)).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]._mapping["note"], "scoped")
+            tables = inspect(conn).get_table_names(schema="myschema")
+            self.assertIn("meta_schema_demo", tables)
+            meta.drop_all(conn)
+
     def test_explicit_sequence_schema_usage(self):
         eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
