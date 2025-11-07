@@ -47,15 +47,15 @@ def core(url, verbose:bool):
         with Session(eng) as session:
             result = session.execute(stmt, {"y": 1})
             for row in result:
-                print(f"id: {row.id}  name: {row.name}")     
-        
+                print(f"id: {row.id}  name: {row.name}")
+
         conn.exec_driver_sql("drop table sa_demo")
         conn.exec_driver_sql("drop sequence sa_demo_id_seq")
-   
+
 
 def meta(url, verbose:bool):
     eng = create_engine(url, echo=verbose, future=True)
-    with eng.connect() as conn: 
+    with eng.connect() as conn:
         print("\nUsing SQLAlchemy MetaData")
         from sqlalchemy import MetaData, Table, Column, Integer, String, ForeignKey
         metadata_obj = MetaData()
@@ -77,10 +77,10 @@ def meta(url, verbose:bool):
         metadata_obj.create_all(eng)
         metadata_obj.drop_all(eng)
 
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Basic demo")
-    
+
     parser.add_argument(
         '-d', '--database',
         help='Database name',

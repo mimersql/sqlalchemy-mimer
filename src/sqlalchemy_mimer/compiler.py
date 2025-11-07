@@ -36,7 +36,7 @@ class MimerSQLCompiler(SQLCompiler):
 
     def visit_current_time_func(self, fn, **kw):
         return "LOCALTIME"
-    
+
     def limit_clause(self, select, **kw):
         # SQL standard style OFFSET / FETCH (preferred form)
         text = ""
@@ -58,7 +58,7 @@ class MimerDDLCompiler(DDLCompiler):
             return f"NEXT VALUE FOR {seq_name}"
         # Fall back to SQLAlchemy’s default handling
         return super().get_column_default_string(column)
-    
+
 
     def get_column_specification(self, column, **kw):
         # Bas: kolumnnamn + typ

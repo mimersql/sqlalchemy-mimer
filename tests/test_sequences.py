@@ -54,7 +54,7 @@ class TestSequences(unittest.TestCase):
 
     def tearDown(self):
         self.meta.drop_all(self.eng, checkfirst=True)
-        
+
 
     def test_manual_sequence(self):
         seq = Sequence("seq_manual_test")
@@ -112,7 +112,7 @@ class TestSequences(unittest.TestCase):
             self.assertEqual([row._mapping["id"] for row in rows], [1, 2])
             self.assertEqual([row._mapping["label"] for row in rows], ["one", "two"])
             self.meta.drop_all(conn)
-            
+
 
     def test_explicit_sequence_custom_schema(self):
         named_seq = Sequence("explicit_seq_myschema", schema="myschema")

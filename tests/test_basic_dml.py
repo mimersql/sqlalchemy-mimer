@@ -51,7 +51,7 @@ class TestDML(unittest.TestCase):
         )
         from sqlalchemy.schema import CreateTable
         from sqlalchemy_mimer.dialect import MimerDialect  # adjust import path if needed
-        
+
         sql = str(CreateTable(users).compile(dialect=MimerDialect()))
         if self.verbose:
             print(sql)

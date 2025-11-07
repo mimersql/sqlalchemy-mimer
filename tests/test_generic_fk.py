@@ -206,7 +206,7 @@ class TestGenericFk(unittest.TestCase):
 
         session.close()
         engine.dispose()
-        
+
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None
     unittest.main()

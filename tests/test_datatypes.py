@@ -88,7 +88,7 @@ class TestDatatypes(unittest.TestCase):
         nsql = normalize_sql(sql)
         self.assertEqual(nsql,
                          'CREATE TABLE types_test ( id INTEGER DEFAULT NEXT VALUE FOR types_test_id_autoinc_seq, val_int INTEGER, val_float DOUBLE PRECISION, val_date DATE, val_ts TIMESTAMP, val_time TIME, val_str VARCHAR(40), val_uuid BUILTIN.UUID, PRIMARY KEY (id) )')
-  
+
         with eng.begin() as conn:
             meta.create_all(conn)
             conn.execute(insert(t), [{
@@ -131,12 +131,12 @@ class TestDatatypes(unittest.TestCase):
             Column("time_val", Time()),
             Column("datetime_val", DateTime()),
             Column("interval_day_5", sqltypes.Interval(day_precision=5)),
-            Column("interval_second_4", sqltypes.Interval(second_precision=4)),            
+            Column("interval_second_4", sqltypes.Interval(second_precision=4)),
             Column("interval_day_5_to_second_2", sqltypes.Interval(day_precision=5, second_precision=2)),
             Column("interval_year", MimerInterval(fields="YEAR")),
             Column("interval_year_2", MimerInterval(fields="YEAR", precision=2)),
             Column("interval_year_to_month", MimerInterval(fields="YEAR TO MONTH")),
-            Column("interval_day_to_second", MimerInterval(fields="DAY TO SECOND", second_precision=5)),     
+            Column("interval_day_to_second", MimerInterval(fields="DAY TO SECOND", second_precision=5)),
             Column("uuid_val", sqltypes.Uuid()),
         )
         compiled_sql = str(CreateTable(data_types).compile(dialect=MimerDialect()))

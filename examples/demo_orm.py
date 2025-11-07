@@ -82,11 +82,11 @@ class Address(Base):
     user: Mapped["User"] = relationship(back_populates="addresses")
     def __repr__(self) -> str:
         return f"Address(id={self.id!r}, email_address={self.email_address!r})"
-    
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Demo of ORM capabilities")
-    
+
     parser.add_argument(
         '-d', '--database',
         help='Database name',
@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     engine = create_engine(db_url, echo=args.verbose)
     #engine = create_engine("sqlite://", echo=True)
-    reset_schema(engine) 
+    reset_schema(engine)
     Base.metadata.create_all(engine)
 
 

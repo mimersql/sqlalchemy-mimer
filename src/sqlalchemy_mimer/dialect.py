@@ -77,7 +77,7 @@ class MimerExecutionContext(DefaultExecutionContext):
         self.cursor.execute(f"SELECT NEXT VALUE FOR {seq_name} FROM system.onerow")
         row = self.cursor.fetchone()
         return row[0]
-    
+
     def get_lastrowid(self):
         # Return value captured by MimerPy after INSERT
         return getattr(self.cursor, "lastrowid", None)
@@ -231,7 +231,7 @@ class MimerTypeCompiler(TypeCompiler):
     visit_CHAR = visit_char
     visit_INTERVAL = visit_interval
     visit_UUID = visit_uuid
-    
+
 class MimerDialect(DefaultDialect):
     name = "mimer"
     driver = "mimerpy"
@@ -272,7 +272,7 @@ class MimerDialect(DefaultDialect):
     colspecs = {
         sqltypes.Interval: MimerInterval,
     }
-    
+
 
 
     def set_isolation_level(self, connection, level):
@@ -400,7 +400,7 @@ class MimerDialect(DefaultDialect):
     def import_dbapi(cls):
         import mimerpy
         return mimerpy
-    
+
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
         schema = self._resolve_schema(connection, schema)
@@ -624,12 +624,12 @@ class MimerDialect(DefaultDialect):
             idx["column_names"].append(r["COLUMN_NAME"])
 
         return list(indexes.values())
-    
+
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
         """Return a list of user table names for the given schema."""
         schema = self._resolve_schema(connection, schema)
-    
+
         query = text("""
             SELECT TABLE_NAME
             FROM INFORMATION_SCHEMA.TABLES
@@ -638,7 +638,7 @@ class MimerDialect(DefaultDialect):
         """)
         rows = connection.execute(query, {"schema": schema}).fetchall()
         return [r[0] for r in rows]
-    
+
     @reflection.cache
     def get_domains(self, connection, schema=None, **kw):
         """Return a list of user-defined domains for the given schema."""
