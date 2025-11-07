@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 — 2025-11-07
+- Fixed sequence handling
+- Fixed schema handling
+  
 ## 1.0.1 — 2025-11-04
 - Use new syntax for `CREATE SEQUENCE`
 
