@@ -35,7 +35,7 @@ class TestSequences(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         db_config.teardown()
-    
+
     def setUp(self):
         self.eng = create_engine(self.url, echo=self.verbose, future=True)
         self.meta = MetaData()

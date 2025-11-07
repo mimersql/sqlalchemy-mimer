@@ -200,7 +200,7 @@ class TestJoined(unittest.TestCase):
                         )
                     )
                 ).all()
-            
+
             if self.verbose:
                 print(res)
 

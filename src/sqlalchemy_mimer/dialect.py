@@ -31,6 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.sql.compiler import IdentifierPreparer
 from sqlalchemy.engine.default import DefaultExecutionContext
 from .compiler import MimerSQLCompiler, MimerDDLCompiler
+from .types import MimerInterval
 
 from sqlalchemy.dialects import registry
 registry.register("mimer", "sqlalchemy_mimer.dialect", "MimerDialect")
@@ -76,25 +77,27 @@ class MimerExecutionContext(DefaultExecutionContext):
         self.cursor.execute(f"SELECT NEXT VALUE FOR {seq_name} FROM system.onerow")
         row = self.cursor.fetchone()
         return row[0]
-    
+
     def get_lastrowid(self):
         # Return value captured by MimerPy after INSERT
         return getattr(self.cursor, "lastrowid", None)
 
 
 class MimerIdentifierPreparer(IdentifierPreparer):
+    """Customize identifier quoting to account for Mimer keywords."""
     def __init__(self, dialect):
         super().__init__(dialect)
         # Normalize reserved words to lowercase for case-insensitive lookup
         self.reserved_words = {w.lower() for w in MIMER_RESERVED_WORDS}
 
     def _requires_quotes(self, value):
-        # Ensure reserved words are matched case-insensitively
+        """Quote identifiers when they collide with reserved words."""
         if value.lower() in self.reserved_words:
             return True
         return super()._requires_quotes(value)
 
 class MimerTypeCompiler(TypeCompiler):
+    """Render SQL type names using Mimer's built-in type keywords."""
     def visit_boolean(self, type_, **kw):
         return "BOOLEAN"
 
@@ -116,22 +119,26 @@ class MimerTypeCompiler(TypeCompiler):
 
 
     def visit_float(self, type_, **kw):
+        """Emit ``FLOAT(p)`` up to 53 bits of precision, otherwise ``DOUBLE``."""
         if type_.precision and type_.precision <= 53:
             return f"FLOAT({type_.precision})"
         return "DOUBLE PRECISION"
 
     def visit_string(self, type_, **kw):
+        """Render ``VARCHAR`` with either the explicit or default length."""
         length = getattr(type_, "length", None)
         if length:
             return f"VARCHAR({length})"
         return "VARCHAR(255)"
 
     def visit_char(self, type_, **kw):
+        """Render ``CHAR`` with a default length of 1 when unspecified."""
         if type_.length:
             return f"CHAR({type_.length})"
         return "CHAR(1)"
 
     def visit_unicode(self, type_, **kw):
+        """Render ``NVARCHAR`` for Unicode-aware string columns."""
         length = getattr(type_, "length", None)
         if length:
             return f"NVARCHAR({length})"
@@ -173,7 +180,43 @@ class MimerTypeCompiler(TypeCompiler):
         return "BUILTIN.UUID"
 
     def visit_interval(self, type_, **kw):
-        return "INTERVAL"
+        """Render native ``INTERVAL`` syntax honoring requested precisions."""
+        if not getattr(type_, "native", True):
+            # Defer to the underlying datetime implementation when SQLAlchemy
+            # requests non-native interval handling.
+            return self.visit_datetime(type_.impl, **kw)
+
+        text = "INTERVAL"
+        fields = getattr(type_, "fields", None)
+        day_precision = getattr(type_, "day_precision", None)
+        second_precision = getattr(type_, "second_precision", None)
+        precision = getattr(type_, "precision", None)
+
+        if fields:
+            text += f" {fields}"
+            if second_precision is not None and "SECOND" in fields.upper():
+                text += f"({second_precision})"
+        else:
+            if day_precision is not None and second_precision is not None:
+                text += f" DAY({day_precision}) TO SECOND({second_precision})"
+            else:
+                if day_precision is not None:
+                    text += f" DAY({day_precision})"
+                if second_precision is not None:
+                    text += f" SECOND({second_precision})"
+
+        if precision is not None and "SECOND" not in (fields or "").upper():
+            text += f"({precision})"
+
+        return text
+
+    def visit_type_decorator(self, type_, **kw):
+        """Delegate TypeDecorator processing to its wrapped implementation."""
+        if isinstance(type_, sqltypes.Interval):
+            return self.visit_interval(type_, **kw)
+        # Delegate to the wrapped implementation so SQLAlchemy's generic
+        # TypeDecorator instances render correctly.
+        return self.process(type_.impl, **kw)
 
     visit_decimal = visit_numeric
     visit_double_precision = visit_float
@@ -189,13 +232,14 @@ class MimerTypeCompiler(TypeCompiler):
     visit_CLOB = visit_text
     visit_NCLOB = visit_unicode_text
     visit_BLOB = visit_large_binary
-    visit_VARBINARY = visit_binary
+    visit_VARBINARY = visit_varbinary
+    visit_BINARY = visit_binary
     visit_NVARCHAR = visit_unicode
     visit_VARCHAR = visit_string
     visit_CHAR = visit_char
     visit_INTERVAL = visit_interval
     visit_UUID = visit_uuid
-    
+
 class MimerDialect(DefaultDialect):
     name = "mimer"
     driver = "mimerpy"
@@ -233,10 +277,14 @@ class MimerDialect(DefaultDialect):
     use_insertmanyvalues = False
     supports_native_autoincrement = True
     insert_returning = False
-    
+    colspecs = {
+        sqltypes.Interval: MimerInterval,
+    }
+
 
 
     def set_isolation_level(self, connection, level):
+        """Map SQLAlchemy isolation levels to MimerPy's autocommit flag."""
         if level == "AUTOCOMMIT":
             connection.autocommitmode = True
         else:
@@ -359,11 +407,13 @@ class MimerDialect(DefaultDialect):
 
     @classmethod
     def import_dbapi(cls):
+        """Import and return the MimerPy DBAPI module."""
         import mimerpy
         return mimerpy
-    
+
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
+        """Reflect column metadata for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
         rows = connection.exec_driver_sql(
             """
@@ -414,6 +464,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
+        """Return True if ``table_name`` exists in ``schema``."""
         schema = self._resolve_schema(connection, schema)
         res = connection.exec_driver_sql(
             """
@@ -427,6 +478,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+        """Return primary-key constraint info for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -449,6 +501,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
+        """Return foreign-key constraint definitions for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -495,6 +548,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+        """Return UNIQUE constraints defined on ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -554,6 +608,7 @@ class MimerDialect(DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
+        """Return non-constraint indexes for ``table_name``."""
         schema = self._resolve_schema(connection, schema)
 
         rows = connection.exec_driver_sql(
@@ -585,12 +640,12 @@ class MimerDialect(DefaultDialect):
             idx["column_names"].append(r["COLUMN_NAME"])
 
         return list(indexes.values())
-    
+
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
         """Return a list of user table names for the given schema."""
         schema = self._resolve_schema(connection, schema)
-    
+
         query = text("""
             SELECT TABLE_NAME
             FROM INFORMATION_SCHEMA.TABLES
@@ -599,7 +654,7 @@ class MimerDialect(DefaultDialect):
         """)
         rows = connection.execute(query, {"schema": schema}).fetchall()
         return [r[0] for r in rows]
-    
+
     @reflection.cache
     def get_domains(self, connection, schema=None, **kw):
         """Return a list of user-defined domains for the given schema."""
@@ -697,6 +752,7 @@ class MimerDialect(DefaultDialect):
 
 
     def _run_autocommit_ddl(self, cursor, statement, parameters):
+        """Execute ``statement`` with autocommit enabled (required for DDL)."""
         conn = cursor.connection
         if conn._transaction:
             conn.rollback()
@@ -708,19 +764,22 @@ class MimerDialect(DefaultDialect):
             conn.autocommitmode = old_mode
 
     def do_execute(self, cursor, statement, parameters, context=None):
+        """Execute SQL, routing DDL through autocommit helper when needed."""
         if statement.lstrip().upper().startswith(("CREATE ", "DROP ", "ALTER ")):
             self._run_autocommit_ddl(cursor, statement, parameters)
         else:
             cursor.execute(statement, parameters or ())
 
     def do_execute_ddl(self, cursor, statement, parameters, context=None):
+        """Execute a DDL statement in autocommit mode."""
         self._run_autocommit_ddl(cursor, statement, parameters)
 
 
     def get_pk_sequence(self, column):
         """Return a SQLAlchemy Sequence for a PK integer column."""
         seq_name = f"{column.table.name}_{column.name}_autoinc_seq"
-        return Sequence(seq_name)
+        seq_schema = column.table.schema
+        return Sequence(seq_name, schema=seq_schema)
 
     def has_sequence(self, connection, sequence_name, schema=None):
         """Return True if the named sequence exists in the given or current schema."""
@@ -739,10 +798,12 @@ class MimerDialect(DefaultDialect):
         return result.scalar() is not None
 
     def before_create_table(target, connection, **kw):
-        # Resolve the correct schema (CURRENT_USER or explicit)
+        """Create implicit autoincrement sequences prior to table creation."""
         schema = target.schema
         dialect = connection.dialect
         resolved_schema = dialect._resolve_schema(connection, schema)
+
+        preparer = dialect.identifier_preparer
 
         for col in target.columns:
             if (
@@ -751,20 +812,11 @@ class MimerDialect(DefaultDialect):
                 and isinstance(col.type, (Integer, BigInteger, SmallInteger))
             ):
                 seq_name = f"{col.table.name}_{col.name}_autoinc_seq"
-                # Check whether the sequence already exists
-                exists = connection.exec_driver_sql(
-                    """
-                    SELECT 1
-                    FROM INFORMATION_SCHEMA.SEQUENCES
-                    WHERE SEQUENCE_SCHEMA = :schema
-                    AND SEQUENCE_NAME = :name
-                    """,
-                    {"schema": resolved_schema, "name": seq_name},
-                ).scalar()
-
-                if not exists:
+                if not dialect.has_sequence(connection, seq_name, schema=resolved_schema):
+                    seq = Sequence(seq_name, schema=resolved_schema)
+                    qualified = preparer.format_sequence(seq, use_schema=True)
                     connection.execute(
-                        text(f'CREATE SEQUENCE "{seq_name}" AS BIGINT NO CYCLE')
+                        text(f"CREATE SEQUENCE {qualified} AS BIGINT NO CYCLE")
                     )
 
 
@@ -774,15 +826,17 @@ class MimerDialect(DefaultDialect):
         schema = target.schema
         resolved_schema = dialect._resolve_schema(connection, schema)
 
+        preparer = dialect.identifier_preparer
+
         for col in target.columns:
             if col.primary_key and col.autoincrement:
                 seq_name = f"{col.table.name}_{col.name}_autoinc_seq"
                 # only drop if it still exists
                 if dialect.has_sequence(connection, seq_name, schema=resolved_schema):
-                    connection.execute(text(f'DROP SEQUENCE "{seq_name}"'))
+                    seq = Sequence(seq_name, schema=resolved_schema)
+                    qualified = preparer.format_sequence(seq, use_schema=True)
+                    connection.execute(text(f"DROP SEQUENCE {qualified}"))
 
     # Attach to Table events
     event.listen(Table, "before_create", before_create_table)
     event.listen(Table, "after_drop", after_drop_table)
-
-

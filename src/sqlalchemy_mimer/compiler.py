@@ -25,15 +25,22 @@ from sqlalchemy import Sequence, Integer, SmallInteger, BigInteger
 class MimerSQLCompiler(SQLCompiler):
     """Compiler for Mimer SQL dialect."""
 
+    def visit_sequence(self, sequence, **kw):
+        """Render ``NEXT VALUE FOR`` expressions for Sequence usage."""
+        preparer = self.dialect.identifier_preparer
+        seq_text = preparer.format_sequence(sequence, use_schema=True)
+        return f"NEXT VALUE FOR {seq_text}"
+
     def visit_current_timestamp_func(self, fn, **kw):
-        # Mimer SQL uses LOCALTIMESTAMP instead of CURRENT_TIMESTAMP
+        """Emit ``LOCALTIMESTAMP`` for :class:`~sqlalchemy.sql.func.now`."""
         return "LOCALTIMESTAMP"
 
     def visit_current_time_func(self, fn, **kw):
+        """Emit ``LOCALTIME`` for :func:`~sqlalchemy.sql.func.current_time`."""
         return "LOCALTIME"
-    
+
     def limit_clause(self, select, **kw):
-        # SQL standard style OFFSET / FETCH (preferred form)
+        """Translate LIMIT/OFFSET to ANSI ``OFFSET .. FETCH`` clauses."""
         text = ""
         if select._offset is not None:
             text += f" OFFSET {select._offset} ROWS"
@@ -46,52 +53,57 @@ class MimerSQLCompiler(SQLCompiler):
 class MimerDDLCompiler(DDLCompiler):
     """DDL Compiler for Mimer SQL dialect."""
     def get_column_default_string(self, column):
+        """Return the SQL fragment for a column default, handling sequences."""
         default = column.default
         # Handle Sequence defaults for autoincrementing columns
         if isinstance(default, Sequence):
-            return f"NEXT VALUE FOR {self.preparer.format_sequence(default)}"
+            seq_name = self.preparer.format_sequence(default, use_schema=True)
+            return f"NEXT VALUE FOR {seq_name}"
         # Fall back to SQLAlchemy’s default handling
         return super().get_column_default_string(column)
-    
+
 
     def get_column_specification(self, column, **kw):
-        # Bas: kolumnnamn + typ
+        """Render a full column definition including implicit sequences."""
         colspec = self.preparer.format_column(column)
         colspec += " " + self.dialect.type_compiler.process(column.type, **kw)
 
-        # 1) Explicit Sequence på kolumnen → använd den
+        # 1) Explicit Sequence on the column → use it
         default = column.default
         if isinstance(default, Sequence):
-            seq_name = self.preparer.format_sequence(default)
+            seq_name = self.preparer.format_sequence(default, use_schema=True)
             colspec += f" DEFAULT NEXT VALUE FOR {seq_name}"
             return colspec
 
-        # 2) Respektera server_default om satt (t.ex. text('NEXT VALUE FOR ...') eller func.current_timestamp())
+        # 2) Respect server_default if present (e.g text('NEXT VALUE FOR ...') or func.current_timestamp())
         if column.server_default is not None:
             default_expr = self.get_column_default_string(column)
             if default_expr:
                 colspec += f" DEFAULT {default_expr}"
             return colspec
 
-        # 3) Implicit autoincrement för PK av heltalstyp utan explicit default
+        # 3) Implicit autoincrement for integer PKs without explicit default
         if (
             column.primary_key
-            and getattr(column, "autoincrement", True)  # default i SA är "auto"
+            and getattr(column, "autoincrement", True)  # SQLAlchemy default is "auto"
             and column.default is None
             and isinstance(column.type, (Integer, BigInteger, SmallInteger))
         ):
-            # matchar namnschemat du använder i before_create_table
+            # matches the naming scheme used in before_create_table
             seq_name = f"{column.table.name}_{column.name}_autoinc_seq"
-            # här *renderar* vi bara DEFAULT …; vi ändrar inte column.default
-            # (så before_create_table kan skapa sekvensen utan sidoeffekter)
-            colspec += f" DEFAULT NEXT VALUE FOR {self.preparer.quote(seq_name)}"
+            seq_schema = column.table.schema
+            seq = Sequence(seq_name, schema=seq_schema)
+            qualified_name = self.preparer.format_sequence(seq, use_schema=True)
+            # we only render the DEFAULT here; we don't mutate column.default
+            # (so before_create_table can create the sequence without side effects)
+            colspec += f" DEFAULT NEXT VALUE FOR {qualified_name}"
 
         return colspec
 
 
     def visit_create_domain_type(self, create, **kw):
         """
-        Generate a CREATE DOMAIN statement for Mimer SQL.
+        Generate a CREATE DOMAIN statement.
         SQLAlchemy does not yet expose CreateDomain for external dialects.
         """
         domain = create.element
@@ -127,6 +139,6 @@ class MimerDDLCompiler(DDLCompiler):
         return sql.strip()
 
     def visit_drop_domain_type(self, drop, **kw):
-        """Generate a DROP DOMAIN statement for Mimer SQL."""
+        """Generate a DROP DOMAIN statement."""
         domain = drop.element
         return f"DROP DOMAIN {self.preparer.format_type(domain)} RESTRICT"

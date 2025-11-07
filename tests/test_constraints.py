@@ -60,7 +60,7 @@ class TestConstraint(unittest.TestCase):
         c_normalized = normalize_sql(child_sql)
         self.assertEqual(p_normalized,
                          'CREATE TABLE parent ( id INTEGER DEFAULT NEXT VALUE FOR parent_id_autoinc_seq, name VARCHAR(20), PRIMARY KEY (id) )')
-        self.assertEqual(c_normalized, 
+        self.assertEqual(c_normalized,
                          'CREATE TABLE child ( id INTEGER DEFAULT NEXT VALUE FOR child_id_autoinc_seq, parent_id INTEGER, "value" VARCHAR(20), PRIMARY KEY (id), FOREIGN KEY(parent_id) REFERENCES parent (id) )')
 
         with eng.begin() as conn:
