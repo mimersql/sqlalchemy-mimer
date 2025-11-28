@@ -53,27 +53,30 @@ import db_config
 class TestORM(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def setUp(self):
-        self.eng = create_engine(self.url, echo=self.verbose, future=True)
-        self.meta = MetaData()
+        pass
 
     def tearDown(self):
-        self.meta.drop_all(self.eng, checkfirst=True)
+        Base.metadata.drop_all(self.eng, checkfirst=True)
 
     def test_demo_orm(self):
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(self.eng)
 
-        with Session(engine) as session:
+        with Session(self.eng) as session:
             monica = User(
                 name="monica",
                 fullname="Monica Andersson",
@@ -91,7 +94,7 @@ class TestORM(unittest.TestCase):
             session.add_all([monica, alex, george])
             session.commit()
 
-        session = Session(engine)
+        session = Session(self.eng)
 
         stmt = select(User).where(User.name.in_(["monica", "alex"]))
 

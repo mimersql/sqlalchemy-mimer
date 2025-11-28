@@ -29,20 +29,24 @@ from test_utils import normalize_sql
 class TestConstraint(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_basic_constraint(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         parent = Table("parent", meta,
@@ -54,16 +58,16 @@ class TestConstraint(unittest.TestCase):
                     Column("parent_id", Integer, ForeignKey("parent.id")),
                     Column("value", String(20)))
 
-        parent_sql = str(CreateTable(parent).compile(dialect=eng.dialect))
-        child_sql = str(CreateTable(child).compile(dialect=eng.dialect))
+        parent_sql = str(CreateTable(parent).compile(dialect=self.eng.dialect))
+        child_sql = str(CreateTable(child).compile(dialect=self.eng.dialect))
         p_normalized = normalize_sql(parent_sql)
         c_normalized = normalize_sql(child_sql)
         self.assertEqual(p_normalized,
-                         'CREATE TABLE parent ( id INTEGER DEFAULT NEXT VALUE FOR parent_id_autoinc_seq, name VARCHAR(20), PRIMARY KEY (id) )')
+                            'CREATE TABLE parent ( id INTEGER DEFAULT NEXT VALUE FOR parent_id_autoinc_seq, name VARCHAR(20), PRIMARY KEY (id) )')
         self.assertEqual(c_normalized,
-                         'CREATE TABLE child ( id INTEGER DEFAULT NEXT VALUE FOR child_id_autoinc_seq, parent_id INTEGER, "value" VARCHAR(20), PRIMARY KEY (id), FOREIGN KEY(parent_id) REFERENCES parent (id) )')
+                        'CREATE TABLE child ( id INTEGER DEFAULT NEXT VALUE FOR child_id_autoinc_seq, parent_id INTEGER, "value" VARCHAR(20), PRIMARY KEY (id), FOREIGN KEY(parent_id) REFERENCES parent (id) )')
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             meta.create_all(conn)
             insp = inspect(conn)
             tables = insp.get_table_names()

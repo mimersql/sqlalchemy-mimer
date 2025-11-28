@@ -127,23 +127,27 @@ from test_utils import normalize_sql
 class TestJoined(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_joined(self):
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(self.eng)
 
-        with Session(engine) as session:
+        with Session(self.eng) as session:
             c = Company(
                 name="company1",
                 employees=[
@@ -220,7 +224,6 @@ class TestJoined(unittest.TestCase):
                 print(res)
 
             session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None

@@ -28,20 +28,24 @@ from test_utils import normalize_sql
 class TestDML(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_basic_dml(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         users = Table(
@@ -57,7 +61,7 @@ class TestDML(unittest.TestCase):
             print(sql)
         normalized = normalize_sql(sql)
         self.assertEqual(normalized,'CREATE TABLE users ( id INTEGER DEFAULT NEXT VALUE FOR users_id_autoinc_seq, name VARCHAR(50), PRIMARY KEY (id) )')
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             try:
                 conn.execute(delete(users))
                 conn.execute("drop table users")

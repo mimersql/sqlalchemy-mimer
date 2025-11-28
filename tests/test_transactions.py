@@ -27,30 +27,34 @@ import db_config
 class TestTransaction(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_transaction(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             conn.execute(text("create table tx_test (id integer primary key, val varchar(20))"))
 
-        with eng.connect() as conn:
+        with self.eng.connect() as conn:
             trans = conn.begin()
             res = conn.execute(text("insert into tx_test values (1, 'A')"))
             self.assertEqual(res.rowcount, 1)
             trans.rollback()
 
-        with eng.connect() as conn:
+        with self.eng.connect() as conn:
             result = conn.execute(text("select count(*) from tx_test")).scalar()
             self.assertEqual(result, 0)
             if self.verbose:
@@ -64,7 +68,7 @@ class TestTransaction(unittest.TestCase):
             if self.verbose:
                 print("After commit:", result)
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             conn.execute(text("drop table tx_test"))
 
 if __name__ == '__main__':

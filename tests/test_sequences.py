@@ -39,22 +39,25 @@ from sqlalchemy_mimer.dialect import MimerDialect
 class TestSequences(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def setUp(self):
-        self.eng = create_engine(self.url, echo=self.verbose, future=True)
         self.meta = MetaData()
 
     def tearDown(self):
         self.meta.drop_all(self.eng, checkfirst=True)
-
 
     def test_manual_sequence(self):
         seq = Sequence("seq_manual_test")

@@ -27,17 +27,21 @@ import db_config
 class TestSequences(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def setUp(self):
-        self.eng = create_engine(self.url, echo=self.verbose, future=True)
         self.meta = MetaData()
         self.table = Table("vw_test_base", self.meta,
                            Column("id", Integer, primary_key=True),
