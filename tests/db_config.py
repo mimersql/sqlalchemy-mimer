@@ -72,10 +72,10 @@ def setup():
         try:
             c.execute("DROP IDENT SQLALCHEMY CASCADE")
         except mimerpy.DatabaseError as de:
-            if de.message[0] != -12517:
+            if de.errno == -12564 or de.errno == -12517: # ident does not exist
                 pass
             else:
-                pass
+                raise
 
         c.execute("CREATE IDENT SQLALCHEMY AS USER USING 'PySecret'")
         c.execute("GRANT DATABANK,IDENT, SCHEMA TO SQLALCHEMY")
