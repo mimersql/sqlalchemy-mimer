@@ -122,23 +122,27 @@ from test_utils import normalize_sql
 class TestTablePerAssociation(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_table_per_association(self):
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(self.eng)
 
-        session = Session(engine)
+        session = Session(self.eng)
 
         session.add_all(
             [
@@ -171,7 +175,6 @@ class TestTablePerAssociation(unittest.TestCase):
                 # no parent here
 
         session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None

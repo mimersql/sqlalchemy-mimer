@@ -118,6 +118,7 @@ from test_utils import normalize_sql
 class TestDictLike(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
@@ -125,9 +126,13 @@ class TestDictLike(unittest.TestCase):
         warnings.filterwarnings("ignore", category=UserWarning)
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
@@ -173,10 +178,9 @@ class TestDictLike(unittest.TestCase):
             def with_characteristic(self, key, value):
                 return self.facts.any(key=key, value=value)
 
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(self.eng)
 
-        session = Session(bind=engine)
+        session = Session(bind=self.eng)
 
         stoat = Animal("stoat")
         stoat["color"] = "reddish"
@@ -244,7 +248,6 @@ class TestDictLike(unittest.TestCase):
             print('any animal with any .value of "somewhat"', res)
 
         session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None

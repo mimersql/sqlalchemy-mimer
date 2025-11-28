@@ -174,6 +174,7 @@ from test_utils import normalize_sql
 class TestDictLikePolymorpic(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
@@ -181,9 +182,13 @@ class TestDictLikePolymorpic(unittest.TestCase):
         warnings.filterwarnings("ignore", category=UserWarning)
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
@@ -235,10 +240,8 @@ class TestDictLikePolymorpic(unittest.TestCase):
             def with_characteristic(self, key, value):
                 return self.facts.any(key=key, value=value)
 
-        engine = create_engine(self.url, echo=self.verbose)
-
-        Base.metadata.create_all(engine)
-        session = Session(engine)
+        Base.metadata.create_all(self.eng)
+        session = Session(self.eng)
 
         stoat = Animal("stoat")
         stoat["color"] = "red"
@@ -311,7 +314,6 @@ class TestDictLikePolymorpic(unittest.TestCase):
             print("any animal with a .value of 5", res)
 
         session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None

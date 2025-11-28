@@ -82,23 +82,27 @@ from test_utils import normalize_sql
 class TestDirectedGraph(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_directed_graph(self):
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(self.eng)
 
-        session = sessionmaker(engine)()
+        session = sessionmaker(self.eng)()
 
         # create a directed graph like this:
         #       n1 -> n2 -> n1
@@ -130,7 +134,6 @@ class TestDirectedGraph(unittest.TestCase):
         assert [x for x in n2.higher_neighbors()] == [n1, n5, n7]
 
         session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None

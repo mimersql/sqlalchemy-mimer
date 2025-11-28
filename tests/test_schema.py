@@ -37,27 +37,31 @@ import db_config
 class TestSchema(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose, future=True)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_schema(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         t = Table("meta_demo", meta,
                 Column("id", Integer, primary_key=True),
                 Column("name", String(40)), schema="myschema")
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             meta.create_all(conn)
             insp = inspect(conn)
             tables = insp.get_table_names(schema="myschema")
@@ -82,7 +86,6 @@ class TestSchema(unittest.TestCase):
             meta.drop_all(conn)
 
     def test_schema_sequence_cleanup(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         t = Table(
@@ -95,14 +98,13 @@ class TestSchema(unittest.TestCase):
 
         seq_name = f"{t.name}_id_autoinc_seq"
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             meta.create_all(conn)
             meta.drop_all(conn)
-            seq_exists = eng.dialect.has_sequence(conn, seq_name, schema="myschema")
+            seq_exists = self.eng.dialect.has_sequence(conn, seq_name, schema="myschema")
             self.assertFalse(seq_exists, f"Sequence {seq_name} should be dropped")
 
     def test_default_schema_roundtrip(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         t = Table(
@@ -112,8 +114,8 @@ class TestSchema(unittest.TestCase):
             Column("note", String(40)),
         )
 
-        with eng.begin() as conn:
-            default_schema = eng.dialect.get_default_schema_name(conn)
+        with self.eng.begin() as conn:
+            default_schema = self.eng.dialect.get_default_schema_name(conn)
             meta.create_all(conn)
             conn.execute(t.insert(), [{"note": "plain"}])
             rows = conn.execute(select(t).order_by(t.c.id)).all()
@@ -126,7 +128,6 @@ class TestSchema(unittest.TestCase):
             meta.drop_all(conn)
 
     def test_metadata_schema_attribute_roundtrip(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData(schema="myschema")
 
         t = Table(
@@ -136,7 +137,7 @@ class TestSchema(unittest.TestCase):
             Column("note", String(40)),
         )
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             meta.create_all(conn)
             conn.execute(t.insert(), [{"note": "scoped"}])
             rows = conn.execute(select(t)).all()
@@ -147,7 +148,6 @@ class TestSchema(unittest.TestCase):
             meta.drop_all(conn)
 
     def test_explicit_sequence_schema_usage(self):
-        eng = create_engine(self.url, echo=self.verbose, future=True)
         meta = MetaData()
 
         named_seq = Sequence("explicit_id_seq", schema="myschema")
@@ -159,7 +159,7 @@ class TestSchema(unittest.TestCase):
             schema="myschema",
         )
 
-        with eng.begin() as conn:
+        with self.eng.begin() as conn:
             meta.create_all(conn)
             conn.execute(t.insert(), [{"label": "first"}, {"label": "second"}])
             rows = conn.execute(select(t).order_by(t.c.id)).all()

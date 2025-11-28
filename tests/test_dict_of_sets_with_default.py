@@ -121,22 +121,26 @@ from test_utils import normalize_sql
 class TestDictOfSetsWithDefault(unittest.TestCase):
     url = db_config.make_tst_uri()
     verbose = __name__ == "__main__"
+    eng = None
 
     @classmethod
     def setUpClass(self):
         db_config.setup()
+        self.eng = create_engine(self.url, echo=self.verbose)
 
     @classmethod
     def tearDownClass(self):
+        if self.eng is not None:
+            self.eng.dispose()
+            self.eng = None
         db_config.teardown()
 
     def tearDown(self):
         pass
 
     def test_dict_of_sets_with_default(self):
-        engine = create_engine(self.url, echo=self.verbose)
-        Base.metadata.create_all(engine)
-        session = Session(engine)
+        Base.metadata.create_all(self.eng)
+        session = Session(self.eng)
 
         # only "A" is referenced explicitly.  Using "collections",
         # we deal with a dict of key/sets of integers directly.
@@ -157,7 +161,6 @@ class TestDictOfSetsWithDefault(unittest.TestCase):
             print(a1.collections["2"])
 
         session.close()
-        engine.dispose()
 
 if __name__ == '__main__':
     unittest.TestLoader.sortTestMethodsUsing = None
