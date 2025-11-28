@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.3 — 2025-11-28
+- Fix lifetime management in tests
+
 ## 1.0.2 — 2025-11-07
 - Fixed sequence handling
 - Fixed schema handling
