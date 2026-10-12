@@ -28,6 +28,7 @@ from sqlalchemy import types as sqltypes
 from sqlalchemy import Sequence, event, Table
 from sqlalchemy import Integer, BigInteger, SmallInteger
 from sqlalchemy import text
+from sqlalchemy import util
 from sqlalchemy.sql.compiler import IdentifierPreparer
 from sqlalchemy.engine.default import DefaultExecutionContext
 from .compiler import MimerSQLCompiler, MimerDDLCompiler
@@ -68,6 +69,24 @@ MIMER_RESERVED_WORDS = {
     "USER", "USING", "VALUE", "VALUES", "VARYING", "WHEN", "WHERE",
     "WHILE", "WITH", "WITHOUT", "YEAR"
 }
+
+
+# mimerpy.connect() options that take a boolean. Values from the URL query
+# string arrive as strings and must be converted.
+_BOOL_CONNECT_ARGS = ("autocommit", "readonly", "trace_unsafe")
+_TRUE_STRINGS = ("1", "true", "yes", "on")
+_FALSE_STRINGS = ("0", "false", "no", "off")
+
+
+def _trace_arg(value):
+    """Convert a ``trace`` URL value: a boolean word becomes a bool, anything
+    else is kept as the path of the trace file."""
+    if isinstance(value, str):
+        if value.lower() in _TRUE_STRINGS:
+            return True
+        if value.lower() in _FALSE_STRINGS:
+            return False
+    return value
 
 
 class MimerExecutionContext(DefaultExecutionContext):
@@ -285,10 +304,8 @@ class MimerDialect(DefaultDialect):
 
     def set_isolation_level(self, connection, level):
         """Map SQLAlchemy isolation levels to MimerPy's autocommit flag."""
-        if level == "AUTOCOMMIT":
-            connection.autocommitmode = True
-        else:
-            connection.autocommitmode = False
+        # Use the PEP 249 property so MimerPy's checks (e.g. readonly) apply
+        connection.autocommit = level == "AUTOCOMMIT"
 
     def create_connect_args(self, url):
         """Build arguments for mimerpy.connect().
@@ -324,6 +341,14 @@ class MimerDialect(DefaultDialect):
         #     connect_kwargs["host"] = host
         # if port:
         #     connect_kwargs["port"] = port
+
+        # Query string values are always strings; convert the boolean
+        # options so e.g. "false" is not passed on as a truthy value.
+        for key in _BOOL_CONNECT_ARGS:
+            if key in opts:
+                opts[key] = util.asbool(opts[key])
+        if "trace" in opts:
+            opts["trace"] = _trace_arg(opts["trace"])
 
         # Include any extra query parameters (e.g. autocommit=true)
         connect_kwargs.update(opts)
@@ -757,11 +782,12 @@ class MimerDialect(DefaultDialect):
         if conn._transaction:
             conn.rollback()
         old_mode = conn.autocommitmode
-        conn.autocommitmode = True
+        # The property raises ProgrammingError on a readonly connection
+        conn.autocommit = True
         try:
             cursor.execute(statement, parameters or ())
         finally:
-            conn.autocommitmode = old_mode
+            conn.autocommit = old_mode
 
     def do_execute(self, cursor, statement, parameters, context=None):
         """Execute SQL, routing DDL through autocommit helper when needed."""

@@ -1,9 +1,19 @@
 # Changelog
 
 ## Unreleased
+- Require MimerPy 1.3.11 (faster `executemany()` and fetching, SQL trace logging)
+- Boolean connection options in the URL (`autocommit`, `readonly`, `trace_unsafe`)
+  are converted to booleans; previously `?autocommit=false` was treated as true.
+  `?trace=` accepts a boolean or a file path.
+- Autocommit mode is set through MimerPy's `autocommit` property, so DDL on a
+  `readonly=true` connection is now rejected instead of being executed
+- Documentation for connection options and logging/tracing
 - Table create/drop event hooks no longer run for non-Mimer dialects (importing `sqlalchemy_mimer` broke `create_all()` on e.g. SQLite)
 - Rename `test_dictlike-polymorphic.py` so `unittest discover` runs it
 - Fix mkdocs config file name in README
+
+## 1.0.4 — 2025-12-10
+- Remove beta status from README
 
 ## 1.0.3 — 2025-11-28
 - Fix lifetime management in tests

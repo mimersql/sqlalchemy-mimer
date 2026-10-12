@@ -14,6 +14,23 @@ engine = create_engine("mimer://SYSADM:SYSPASS@localhost:1360/demo")
 
 You can then use SQLAlchemy’s ORM or Core APIs as usual.
 
+### Connection options
+
+Options for `mimerpy.connect()` can be given in the URL query string or with
+`connect_args`. In the URL, the boolean options `autocommit`, `readonly` and
+`trace_unsafe` accept `true`/`false`, `yes`/`no`, `on`/`off` or `1`/`0`:
+
+```python
+engine = create_engine("mimer://SYSADM:SYSPASS@demo?readonly=true")
+engine = create_engine("mimer://SYSADM:SYSPASS@demo", connect_args={"readonly": True})
+```
+
+To run in autocommit mode, prefer SQLAlchemy's own isolation level setting:
+
+```python
+engine = create_engine("mimer://SYSADM:SYSPASS@demo", isolation_level="AUTOCOMMIT")
+```
+
 ---
 
 ## Core Example
@@ -125,6 +142,54 @@ sandy (1 addresses)
 - The dialect automatically retrieves generated IDs using `MimerGetSequenceValue()`,  
   so no extra `SELECT` is needed after `INSERT`.
 - All standard SQLAlchemy ORM features (relationships, eager/lazy loading, cascading) work as expected.
+
+---
+
+## Logging and tracing
+
+There are two levels of logging, and they can be used together.
+
+**SQLAlchemy logging** shows the SQL that SQLAlchemy sends to the driver, with
+parameters. This is usually what you need when developing:
+
+```python
+engine = create_engine("mimer://SYSADM:SYSPASS@demo", echo=True)
+```
+
+or, through the standard `logging` module:
+
+```python
+import logging
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+```
+
+Use `hide_parameters=True` in `create_engine()` to keep parameter values out of
+the log. Literals in the SQL text are still shown.
+
+**MimerPy SQL trace** (MimerPy 1.3.10 or later) logs what the driver actually
+sends to Mimer SQL, including commits and rollbacks. By default it replaces
+literals with `#` and leaves out parameter values, so it is safe to use in
+production. It can be enabled without changing the application:
+
+```bash
+export MIMERPY_TRACE=1                 # log to stderr
+export MIMERPY_TRACE=/tmp/mimer-sql.log  # log to a file
+```
+
+or per engine:
+
+```python
+engine = create_engine("mimer://SYSADM:SYSPASS@demo?trace=/tmp/mimer-sql.log")
+engine = create_engine("mimer://SYSADM:SYSPASS@demo", connect_args={"trace": True})
+```
+
+Passing `trace=false` (or `connect_args={"trace": False}`) disables tracing for
+that engine even when `MIMERPY_TRACE` is set. To log full SQL and parameter
+values, set `trace_unsafe=true` or `MIMERPY_TRACE_UNSAFE=1`. Only do this where
+the log can't expose sensitive data.
+
+See the MimerPy user guide for details on the trace format.
 
 ---
 
