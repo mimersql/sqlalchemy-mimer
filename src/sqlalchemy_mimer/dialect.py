@@ -239,6 +239,8 @@ class MimerTypeCompiler(TypeCompiler):
 
     visit_decimal = visit_numeric
     visit_double_precision = visit_float
+    visit_double = visit_float
+    visit_DOUBLE = visit_float
     visit_TIMESTAMP = visit_datetime
     visit_DOUBLE_PRECISION = visit_float
     visit_DECIMAL = visit_numeric

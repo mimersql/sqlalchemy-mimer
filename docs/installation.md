@@ -1,6 +1,7 @@
 # Installation
 
 SQLAlchemy-Mimer supports **Python 3.8+** and **SQLAlchemy 2.0+**.
+Tested with SQLAlchemy 2.0 and 2.1, and MimerPy 1.3.11.
 
 ---
 

@@ -2,6 +2,8 @@
 
 A SQLAlchemy 2.x dialect for [**Mimer SQL**](https://developer.mimer.com), built on top of the PEP 249-compliant driver [**MimerPy**](https://pypi.org/project/mimerpy/).
 
+Tested with SQLAlchemy 2.0 and 2.1, and MimerPy 1.3.11.
+
 ## 🔧 Installation
 
 ### From source (editable mode)

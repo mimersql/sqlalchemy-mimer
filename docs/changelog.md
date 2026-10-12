@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Tested with SQLAlchemy 2.0 and 2.1, and MimerPy 1.3.11
+- Support SQLAlchemy 2.1: render the `Double` type (used for `Mapped[float]`) as `DOUBLE PRECISION`
 - Require MimerPy 1.3.11 (faster `executemany()` and fetching, SQL trace logging)
 - Boolean connection options in the URL (`autocommit`, `readonly`, `trace_unsafe`)
   are converted to booleans; previously `?autocommit=false` was treated as true.
