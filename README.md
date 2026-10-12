@@ -121,5 +121,5 @@ mkdocs serve
 Alternatively build the docs without flat structure that can be viewed in the browser directly without relying on `mkdocs serve`:
 
 ```bash
-mkdocs build -f mkdir-nodir.yml
+mkdocs build -f mkdocs-nodir.yaml
 ```

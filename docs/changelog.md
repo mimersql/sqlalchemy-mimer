@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- Table create/drop event hooks no longer run for non-Mimer dialects (importing `sqlalchemy_mimer` broke `create_all()` on e.g. SQLite)
+- Rename `test_dictlike-polymorphic.py` so `unittest discover` runs it
+- Fix mkdocs config file name in README
+
 ## 1.0.3 — 2025-11-28
 - Fix lifetime management in tests
 

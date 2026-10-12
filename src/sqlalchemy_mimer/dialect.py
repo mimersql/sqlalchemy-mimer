@@ -799,6 +799,9 @@ class MimerDialect(DefaultDialect):
 
     def before_create_table(target, connection, **kw):
         """Create implicit autoincrement sequences prior to table creation."""
+        # Listeners are global on Table; ignore tables created through other dialects
+        if connection.dialect.name != "mimer":
+            return
         schema = target.schema
         dialect = connection.dialect
         resolved_schema = dialect._resolve_schema(connection, schema)
@@ -822,6 +825,9 @@ class MimerDialect(DefaultDialect):
 
     def after_drop_table(target, connection, **kw):
         """Drop sequences associated with autoincrement columns, if Mimer didn't."""
+        # Listeners are global on Table; ignore tables created through other dialects
+        if connection.dialect.name != "mimer":
+            return
         dialect = connection.dialect
         schema = target.schema
         resolved_schema = dialect._resolve_schema(connection, schema)
